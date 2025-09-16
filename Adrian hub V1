@@ -1,4 +1,6 @@
--- Auto-run loader by placeId. Executes all scripts defined per placeId.
+-- Auto-run loader by placeId. Executes mapped scripts. 
+-- Any game except SAB will also enable Infinite Jump.
+
 local place = tostring(game.PlaceId)
 
 local map = {
@@ -14,7 +16,7 @@ local map = {
     ["6872265039"] = { -- Bedwars
         "https://pastebin.com/raw/DwuyZWZa"
     },
-    ["109983668079237"] = { -- SAB (now only 2 scripts)
+    ["109983668079237"] = { -- SAB (excluded from infinite jump)
         "https://pastefy.app/dovcU8QW/raw",
         "https://raw.githubusercontent.com/tienkhanh1/spicy/main/Chilli.lua"
     },
@@ -23,17 +25,32 @@ local map = {
     }
 }
 
+-- Run scripts for current game
 local urls = map[place]
-if not urls then return end
-
-for _, url in ipairs(urls) do
-    local ok, err = pcall(function()
-        local resp = game:HttpGet(url, true)
-        local fn, loadErr = loadstring(resp)
-        if not fn then error("loadstring error: "..tostring(loadErr)) end
-        fn()
-    end)
-    if not ok then
-        warn(("Loader failed for %s : %s"):format(url, tostring(err)))
+if urls then
+    for _, url in ipairs(urls) do
+        local ok, err = pcall(function()
+            local resp = game:HttpGet(url, true)
+            local fn, loadErr = loadstring(resp)
+            if not fn then error("loadstring error: "..tostring(loadErr)) end
+            fn()
+        end)
+        if not ok then
+            warn(("Loader failed for %s : %s"):format(url, tostring(err)))
+        end
     end
+end
+
+-- Infinite Jump for all games except SAB
+if place ~= "109983668079237" then
+    local UserInputService = game:GetService("UserInputService")
+    local jumpConnection
+    jumpConnection = UserInputService.JumpRequest:Connect(function()
+        local plr = game:GetService("Players").LocalPlayer
+        local char = plr.Character or plr.CharacterAdded:Wait()
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState("Jumping")
+        end
+    end)
 end
