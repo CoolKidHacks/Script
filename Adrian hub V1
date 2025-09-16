@@ -1,0 +1,39 @@
+-- Auto-run loader by placeId. Executes all scripts defined per placeId.
+local place = tostring(game.PlaceId)
+
+local map = {
+    ["79546208627805"] = { -- 99 Nights
+        "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/nightsintheforest.lua"
+    },
+    ["99567941238278"] = { -- Ink Games
+        "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/loader.lua"
+    },
+    ["18687417158"] = { -- Forsaken
+        "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/forsaken.lua"
+    },
+    ["6872265039"] = { -- Bedwars
+        "https://pastebin.com/raw/DwuyZWZa"
+    },
+    ["109983668079237"] = { -- SAB (now only 2 scripts)
+        "https://pastefy.app/dovcU8QW/raw",
+        "https://raw.githubusercontent.com/tienkhanh1/spicy/main/Chilli.lua"
+    },
+    ["126884695634066"] = { -- Grow a Garden
+        "https://raw.githubusercontent.com/tienkhanh1/spicy/main/Chilli.lua"
+    }
+}
+
+local urls = map[place]
+if not urls then return end
+
+for _, url in ipairs(urls) do
+    local ok, err = pcall(function()
+        local resp = game:HttpGet(url, true)
+        local fn, loadErr = loadstring(resp)
+        if not fn then error("loadstring error: "..tostring(loadErr)) end
+        fn()
+    end)
+    if not ok then
+        warn(("Loader failed for %s : %s"):format(url, tostring(err)))
+    end
+end
