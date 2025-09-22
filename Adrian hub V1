@@ -5,7 +5,7 @@ local place = tostring(game.PlaceId)
 
 local map = {
     ["79546208627805"] = { -- 99 Nights
-        "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/nightsintheforest.lua"
+        "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/newnightsintheforest.lua"
     },
     ["99567941238278"] = { -- Ink Games
         "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/loader.lua"
