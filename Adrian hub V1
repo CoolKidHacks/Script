@@ -18,7 +18,7 @@ local map = {
     },
     ["109983668079237"] = { -- SAB (excluded from infinite jump)
         "https://pastefy.app/dovcU8QW/raw",
-        "https://raw.githubusercontent.com/tienkhanh1/spicy/main/Chilli.lua"
+        "https://raw.githubusercontent.com/ily123950/Vulkan/refs/heads/main/Tr"
     },
     ["126884695634066"] = { -- Grow a Garden
         "https://raw.githubusercontent.com/tienkhanh1/spicy/main/Chilli.lua"
