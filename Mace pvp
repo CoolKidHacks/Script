@@ -1,0 +1,139 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RS = game:GetService("RunService")
+
+-- DISTANCE LIMIT for lobby protection
+local LOBBY_PROTECTION_DISTANCE = 40
+
+-- GUI TOGGLE
+local sg = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+sg.ResetOnSpawn = false
+
+local toggle = Instance.new("TextButton", sg)
+toggle.Size = UDim2.new(0,150,0,40)
+toggle.Position = UDim2.new(0,20,0,20)
+toggle.Text = "Toggle OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(40,40,40)
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.Draggable = true
+
+local running = false
+
+-- FORCE CLICK
+local function click()
+    mouse1press()
+    mouse1release()
+end
+
+-- GET TOOL
+local function getTool()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _,v in ipairs(char:GetChildren()) do
+        if v:IsA("Tool") then return v end
+    end
+end
+
+local function equipTool()
+    local t = getTool()
+    if t then t.Parent = LocalPlayer.Character end
+end
+
+-- CHECK IF PLAYER IS NEAR LOBBY OBJECTS
+local function nearLobby(char)
+    local lobby = workspace:FindFirstChild("Lobby")
+    if not lobby then return false end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+
+    local pos = hrp.Position
+
+    -- loop ALL objects inside workspace.Lobby
+    for _,obj in ipairs(lobby:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if (obj.Position - pos).Magnitude <= LOBBY_PROTECTION_DISTANCE then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+-- VALID TARGET
+local function valid(plr)
+    if plr == LocalPlayer then return false end
+    if LocalPlayer:IsFriendsWith(plr.UserId) then return false end
+
+    local char = plr.Character
+    if not char then return false end
+
+    -- DO NOT target players NEAR the lobby
+    if nearLobby(char) then return false end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return false end
+    
+    if hum.Health <= 0 then return false end
+
+    return true
+end
+
+-- ATTACK
+local function attack(plr)
+    local lchar = LocalPlayer.Character
+    if not lchar then return end
+
+    local lhrp = lchar:FindFirstChild("HumanoidRootPart")
+    local tchar = plr.Character
+    if not lhrp or not tchar then return end
+
+    local thrp = tchar:FindFirstChild("HumanoidRootPart")
+    local thum = tchar:FindFirstChildOfClass("Humanoid")
+    if not thrp or not thum then return end
+
+    while running and thum.Health > 0 do
+        -- stay up
+        lhrp.CFrame = thrp.CFrame * CFrame.new(0,180,0)
+        task.wait(0.15)
+        
+        -- drop
+        lhrp.CFrame = thrp.CFrame
+        task.wait(0.05)
+
+        equipTool()
+        click()
+
+        task.wait(0.05)
+
+        -- back up loop
+        lhrp.CFrame = thrp.CFrame * CFrame.new(0,180,0)
+        task.wait(0.05)
+    end
+end
+
+-- MAIN LOOP
+local function mainLoop()
+    while running do
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if not running then return end
+
+            if valid(plr) then
+                attack(plr)
+            end
+        end
+    end
+end
+
+-- TOGGLE
+toggle.MouseButton1Click:Connect(function()
+    running = not running
+    toggle.Text = running and "Toggle ON" or "Toggle OFF"
+    
+    if running then
+        task.spawn(mainLoop)
+    end
+end)
