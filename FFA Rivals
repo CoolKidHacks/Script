@@ -1,52 +1,45 @@
--- ================= INITIAL DELAY =================
-task.wait(5) -- Wait 5 seconds before running the rest of the script
-
--- ================= CONFIG =================
+-- ====================== CONFIG ======================
 local TARGET_PLACE_ID = 129604661913557
+local TELEPORT_RETRY_INTERVAL = 0.5
+local SERVER_HOP_INTERVAL = 3600 -- 1 hour
+local JOIN_INTERVAL = 1.7
+local RESPAWN_INTERVAL = 1.7
+local START_DELAY = 5 -- seconds before main logic turns ON
 local COLLECT_RANGE = 500
 local collectHealth = true
 local collectAmmo = true
 
--- ================= SERVICES =================
+-- ====================== SERVICES ======================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
 local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ================= REMOTES =================
-local ArcadeRemotes = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Arcade")
-local DuelsRemotes = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Duels")
+-- ====================== REMOTES ======================
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local Arcade = Remotes:WaitForChild("Arcade")
+local Duels = Remotes:WaitForChild("Duels")
+local teleportArgs = { "arc_freeforall" }
 
-local teleportArgs = {
-    [1] = "arc_freeforall"
-}
-
--- ================= STAFF DETECTOR CODE =================
+-- ====================== STAFF DETECTOR ======================
 local STAFF_CODE = [[
 shared.StaffDetectorLoading = false
 autoload = true
-loadstring(game:HttpGetAsync(
-    "https://raw.githubusercontent.com/Ukrubojvo/Modules/main/StaffDetector.lua"
-))()
+loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/Ukrubojvo/Modules/main/StaffDetector.lua"))()
 ]]
 
-local function loadStaffDetector()
-    pcall(function()
-        shared.StaffDetectorLoading = false
-        autoload = true
-        loadstring(game:HttpGetAsync(
-            "https://raw.githubusercontent.com/Ukrubojvo/Modules/main/StaffDetector.lua"
-        ))()
-    end)
-end
+pcall(function()
+    shared.StaffDetectorLoading = false
+    autoload = true
+    loadstring(game:HttpGetAsync(
+        "https://raw.githubusercontent.com/Ukrubojvo/Modules/main/StaffDetector.lua"
+    ))()
+end)
 
--- Load immediately
-loadStaffDetector()
-
--- Queue on teleport / serverhop
 local queue =
     (syn and syn.queue_on_teleport)
     or queue_on_teleport
@@ -56,77 +49,139 @@ if queue then
     queue(STAFF_CODE)
 end
 
--- ================= AUTO RECONNECT ON KICK =================
+-- ====================== AUTO RECONNECT ======================
 pcall(function()
     GuiService.ErrorMessageChanged:Connect(function(msg)
         if msg and msg ~= "" then
-            if queue then
-                queue(STAFF_CODE)
-            end
+            if queue then queue(STAFF_CODE) end
             task.wait(1)
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId, LocalPlayer)
-            end)
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
         end
     end)
 end)
 
--- ================= NOT TARGET PLACE: SPAM TELEPORT =================
+-- ====================== COREGUI UI ======================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ArcadeStatusUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = CoreGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 260, 0, 42)
+Frame.Position = UDim2.new(0, 20, 0, 60)
+Frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local Label = Instance.new("TextLabel")
+Label.Size = UDim2.new(1, 0, 1, 0)
+Label.BackgroundTransparency = 1
+Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+Label.Font = Enum.Font.SourceSansBold
+Label.TextSize = 16
+Label.Text = "Initializing..."
+Label.Parent = Frame
+
+-- ====================== UI TIMER LOGIC (NO BLOCKING) ======================
+local startTick = tick()
+local running = false
+
+task.spawn(function()
+    while true do
+        local elapsed = math.floor(tick() - startTick)
+
+        if game.PlaceId ~= TARGET_PLACE_ID then
+            Label.Text = "TPing to place in " .. elapsed .. "s"
+        else
+            if not running then
+                local remaining = START_DELAY - elapsed
+                if remaining > 0 then
+                    Label.Text = "Running in " .. remaining .. "s"
+                else
+                    running = true
+                    Label.Text = "Running"
+                end
+            else
+                Label.Text = "Running"
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+-- ====================== NOT TARGET PLACE ======================
 if game.PlaceId ~= TARGET_PLACE_ID then
+    -- spam teleport until correct place
     task.spawn(function()
         while game.PlaceId ~= TARGET_PLACE_ID do
             pcall(function()
-                ArcadeRemotes.TeleportToArcadeServer:InvokeServer(unpack(teleportArgs))
+                Arcade.TeleportToArcadeServer:InvokeServer(unpack(teleportArgs))
             end)
-            task.wait(0.5)
+            task.wait(TELEPORT_RETRY_INTERVAL)
         end
     end)
+
+    -- hourly server hop
+    task.spawn(function()
+        while true do
+            task.wait(SERVER_HOP_INTERVAL)
+            pcall(function()
+                Arcade.TeleportToArcadeServer:InvokeServer(unpack(teleportArgs))
+            end)
+        end
+    end)
+
     return
 end
 
--- ================= TARGET PLACE LOGIC =================
+-- ====================== START DELAY ======================
+task.delay(START_DELAY, function()
 
--- JOIN ARCADE EVERY 1.7s
-task.spawn(function()
-    while true do
-        pcall(function()
-            ArcadeRemotes.Join:FireServer()
-        end)
-        task.wait(1.7)
-    end
-end)
+    -- JOIN ARCADE LOOP
+    task.spawn(function()
+        while true do
+            pcall(function()
+                Arcade.Join:FireServer()
+            end)
+            task.wait(JOIN_INTERVAL)
+        end
+    end)
 
--- RESPAWN EVERY 1.7s
-task.spawn(function()
-    while true do
-        pcall(function()
-            DuelsRemotes.RespawnNow:FireServer()
-        end)
-        task.wait(1.7)
-    end
-end)
+    -- RESPAWN LOOP
+    task.spawn(function()
+        while true do
+            pcall(function()
+                Duels.RespawnNow:FireServer()
+            end)
+            task.wait(RESPAWN_INTERVAL)
+        end
+    end)
 
--- ================= FIRETOUCH AUTO COLLECT =================
-RunService.RenderStepped:Connect(function()
-    local character = LocalPlayer.Character
-    if not character then return end
+    -- ====================== FIRETOUCH ON HEARTBEAT (PICKUP) ======================
+    RunService.Heartbeat:Connect(function()
+        local character = LocalPlayer.Character
+        if not character then return end
 
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not hrp or not humanoid then return end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not hrp or not humanoid then return end
 
-    local needsHealth = humanoid.Health < humanoid.MaxHealth
+        local needsHealth = humanoid.Health < humanoid.MaxHealth
 
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj:IsA("BasePart") and obj.Name == "_drop" then
-            local distance = (hrp.Position - obj.Position).Magnitude
-            if distance <= COLLECT_RANGE then
-                if (collectHealth and obj:FindFirstChild("Health") and needsHealth)
-                or (collectAmmo and obj:FindFirstChild("Ammo")) then
-                    firetouchinterest(hrp, obj, 0)
-                    firetouchinterest(hrp, obj, 1)
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj:IsA("BasePart") and obj.Name == "_drop" then
+                if (hrp.Position - obj.Position).Magnitude <= COLLECT_RANGE then
+                    if (collectHealth and obj:FindFirstChild("Health") and needsHealth)
+                    or (collectAmmo and obj:FindFirstChild("Ammo")) then
+                        firetouchinterest(hrp, obj, 0)
+                        firetouchinterest(hrp, obj, 1)
+                    end
                 end
             end
         end
-    end
+    end)
+
 end)
