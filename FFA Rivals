@@ -1,10 +1,10 @@
 -- ====================== CONFIG ======================
 local TARGET_PLACE_ID = 129604661913557
 local TELEPORT_RETRY_INTERVAL = 0.5
-local SERVER_HOP_INTERVAL = 3600 -- 1 hour
+local SERVER_HOP_INTERVAL = 3600
 local JOIN_INTERVAL = 1.7
 local RESPAWN_INTERVAL = 1.7
-local START_DELAY = 5 -- seconds before main logic turns ON
+local START_DELAY = 5
 local COLLECT_RANGE = 500
 local collectHealth = true
 local collectAmmo = true
@@ -85,7 +85,7 @@ Label.TextSize = 16
 Label.Text = "Initializing..."
 Label.Parent = Frame
 
--- ====================== UI TIMER LOGIC (NO BLOCKING) ======================
+-- ====================== UI TIMER ======================
 local startTick = tick()
 local running = false
 
@@ -112,9 +112,8 @@ task.spawn(function()
     end
 end)
 
--- ====================== NOT TARGET PLACE ======================
+-- ====================== WRONG PLACE ======================
 if game.PlaceId ~= TARGET_PLACE_ID then
-    -- spam teleport until correct place
     task.spawn(function()
         while game.PlaceId ~= TARGET_PLACE_ID do
             pcall(function()
@@ -124,7 +123,6 @@ if game.PlaceId ~= TARGET_PLACE_ID then
         end
     end)
 
-    -- hourly server hop
     task.spawn(function()
         while true do
             task.wait(SERVER_HOP_INTERVAL)
@@ -137,10 +135,10 @@ if game.PlaceId ~= TARGET_PLACE_ID then
     return
 end
 
--- ====================== START DELAY ======================
+-- ====================== START ======================
 task.delay(START_DELAY, function()
 
-    -- JOIN ARCADE LOOP
+    -- AUTO JOIN
     task.spawn(function()
         while true do
             pcall(function()
@@ -150,7 +148,7 @@ task.delay(START_DELAY, function()
         end
     end)
 
-    -- RESPAWN LOOP
+    -- AUTO RESPAWN
     task.spawn(function()
         while true do
             pcall(function()
@@ -160,16 +158,18 @@ task.delay(START_DELAY, function()
         end
     end)
 
-    -- ====================== FIRETOUCH ON HEARTBEAT (PICKUP) ======================
+    -- ====================== FIRETOUCH + AUTO HEALTH/AMMO (FROM YOUR SCRIPT) ======================
     RunService.Heartbeat:Connect(function()
+        if not collectHealth and not collectAmmo then return end
+
         local character = LocalPlayer.Character
         if not character then return end
 
         local hrp = character:FindFirstChild("HumanoidRootPart")
-        local humanoid = character:FindFirstChild("Humanoid")
-        if not hrp or not humanoid then return end
+        if not hrp then return end
 
-        local needsHealth = humanoid.Health < humanoid.MaxHealth
+        local humanoid = character:FindFirstChild("Humanoid")
+        local needsHealth = humanoid and humanoid.Health < humanoid.MaxHealth
 
         for _, obj in ipairs(workspace:GetChildren()) do
             if obj:IsA("BasePart") and obj.Name == "_drop" then
