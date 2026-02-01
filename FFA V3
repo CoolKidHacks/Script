@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 pcall(function()
-    loadstring(game:HttpGet("https://pastebin.com/raw/c6RCU5zT"))()
+    loadstring(game:HttpGet("https://pastebin.com/raw/CiMDYe0w"))()
 end)
 
 -- =========================
