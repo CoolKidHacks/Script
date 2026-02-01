@@ -1,0 +1,157 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    HRP = char:WaitForChild("HumanoidRootPart")
+end)
+
+local VOID_POS = Vector3.new(0, -1000, 0) 
+local SAFE_RAY_OFFSET = Vector3.new(0, 5, 0)
+
+local MIN_RADIUS = 20000
+local MAX_RADIUS = 120000
+local HEIGHT_OFFSET = 50000
+local ORBIT_SPEED = 3000
+local Prediction = 0.18
+local Smoothness = 0.10
+local VerticalDodgeStrength = 400
+local VerticalDodgeSpeed = 10
+
+local OrbitEnabled = false
+local OrbitConnection
+local orbitAngle = 0
+local lastCF = Camera.CFrame
+local time = 0
+
+local function getOtherOrbiters()
+    local orbiters = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            table.insert(orbiters, plr.Character.HumanoidRootPart)
+        end
+    end
+    return orbiters
+end
+
+local function getBestEnemy()
+    local best, bestScore = nil, -math.huge
+    local others = getOtherOrbiters()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 then
+                local dist = (HRP.Position - hrp.Position).Magnitude
+                local minOtherDist = math.huge
+                for _, o in ipairs(others) do
+                    local d = (hrp.Position - o.Position).Magnitude
+                    if d < minOtherDist then minOtherDist = d end
+                end
+                local score = -dist + minOtherDist * 0.7
+                if score > bestScore then
+                    bestScore = score
+                    best = plr.Character
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function teleportToVoid()
+    if HRP then
+        
+        HRP.CFrame = CFrame.new(VOID_POS + SAFE_RAY_OFFSET)
+        HRP.AssemblyLinearVelocity = Vector3.zero
+        HRP.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
+local function setCamera(enemy, dt)
+    if not enemy then return end
+    local head = enemy:FindFirstChild("Head")
+    local ehrp = enemy:FindFirstChild("HumanoidRootPart")
+    if not head or not ehrp then return end
+
+    orbitAngle += ORBIT_SPEED * dt
+    time += dt
+
+    local rad = math.rad(orbitAngle)
+    local velocity = ehrp.AssemblyLinearVelocity
+    local predicted = head.Position + velocity * Prediction
+
+    local dist = (HRP.Position - ehrp.Position).Magnitude
+    local radius = math.clamp(dist * 1.2, MIN_RADIUS, MAX_RADIUS)
+
+    local verticalOffset = HEIGHT_OFFSET + radius * 0.05 + math.sin(time * VerticalDodgeSpeed) * VerticalDodgeStrength
+    local orbitOffset = Vector3.new(math.cos(rad) * radius, verticalOffset, math.sin(rad) * radius)
+
+    local camPos = predicted + orbitOffset
+    local cf = CFrame.lookAt(camPos, predicted)
+
+    lastCF = lastCF:Lerp(cf, Smoothness)
+    Camera.CFrame = lastCF
+
+    
+    if _G.SilentAim or _G.RageBot then
+       
+        local targetPos = predicted + Vector3.new(0,0,0)
+        if _G.SilentAim then _G.SilentAim.Target = targetPos end
+        if _G.RageBot then _G.RageBot.Target = targetPos end
+    end
+end
+
+
+local function toggleOrbit(state)
+    OrbitEnabled = state
+    if state then
+        OrbitConnection = RunService.RenderStepped:Connect(function(dt)
+            teleportToVoid()
+            local enemy = getBestEnemy()
+            if enemy then
+                setCamera(enemy, dt)
+            end
+        end)
+    else
+        if OrbitConnection then
+            OrbitConnection:Disconnect()
+            OrbitConnection = nil
+        end
+        Camera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+    end
+end
+
+local ToggleFrame = Instance.new("Frame", Gui)
+ToggleFrame.Size = UDim2.new(0,70,0,70)
+ToggleFrame.Position = UDim2.new(0,12,0.5,-35)
+ToggleFrame.BackgroundColor3 = Color3.fromRGB(138,43,226)
+ToggleFrame.Active = true
+ToggleFrame.Draggable = true
+Instance.new("UICorner",ToggleFrame).CornerRadius = UDim.new(0,35)
+
+local Button = Instance.new("TextButton", ToggleFrame)
+Button.Size = UDim2.new(1,0,1,0)
+Button.BackgroundTransparency = 1
+Button.Text = "🌀"
+Button.Font = Enum.Font.GothamBold
+Button.TextSize = 32
+Button.TextColor3 = Color3.new(1,1,1)
+
+local function flash()
+    TweenService:Create(ToggleFrame, TweenInfo.new(.15), {BackgroundColor3 = OrbitEnabled and Color3.fromRGB(0,200,120) or Color3.fromRGB(138,43,226)}):Play()
+end
+
+Button.MouseButton1Click:Connect(function()
+    toggleOrbit(not OrbitEnabled)
+    flash()
+end)
+
+toggleOrbit(true)
+print("Astral orbit auto-enabled")
