@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 pcall(function()
-    loadstring(game:HttpGet("https://pastebin.com/raw/CiMDYe0w"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/CoolKidHacks/Script/refs/heads/main/Orbit%20void"))()
 end)
 
 -- =========================
