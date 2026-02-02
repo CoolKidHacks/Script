@@ -1,0 +1,92 @@
+-- MAX POTATO GRAPHICS / PERMANENT ANTI-LAG (Client)
+-- Forces lowest visuals and keeps re-applying settings.
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+
+-- Attempt to force lowest Roblox graphics level
+pcall(function()
+    local settings = UserSettings():GetService("UserGameSettings")
+    settings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+end)
+
+-- Lighting forced to minimal
+local function optimizeLighting()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 1e10
+    Lighting.Brightness = 0
+    Lighting.ClockTime = 14
+    Lighting.OutdoorAmbient = Color3.fromRGB(150,150,150)
+
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+            v:Destroy()
+        end
+    end
+end
+
+-- Terrain optimization
+local function optimizeTerrain()
+    local terrain = Workspace:FindFirstChildOfClass("Terrain")
+    if terrain then
+        terrain.WaterWaveSize = 0
+        terrain.WaterWaveSpeed = 0
+        terrain.WaterReflectance = 0
+        terrain.WaterTransparency = 1
+    end
+end
+
+-- Make everything potato graphics
+local function optimizeObject(obj)
+    if obj:IsA("BasePart") then
+        obj.Material = Enum.Material.Plastic
+        obj.Reflectance = 0
+        obj.CastShadow = false
+    elseif obj:IsA("Decal") or obj:IsA("Texture") then
+        obj.Transparency = 1
+    elseif obj:IsA("ParticleEmitter")
+        or obj:IsA("Trail")
+        or obj:IsA("Smoke")
+        or obj:IsA("Fire")
+        or obj:IsA("Sparkles") then
+        obj.Enabled = false
+    elseif obj:IsA("Explosion") then
+        obj:Destroy()
+    end
+end
+
+-- Character potato mode
+local function optimizeCharacter(char)
+    for _, v in ipairs(char:GetDescendants()) do
+        optimizeObject(v)
+    end
+end
+
+-- Initial optimization
+optimizeLighting()
+optimizeTerrain()
+
+for _, v in ipairs(Workspace:GetDescendants()) do
+    optimizeObject(v)
+end
+
+Workspace.DescendantAdded:Connect(optimizeObject)
+
+if player.Character then
+    optimizeCharacter(player.Character)
+end
+player.CharacterAdded:Connect(optimizeCharacter)
+
+-- Permanent enforcement loop
+task.spawn(function()
+    while true do
+        optimizeLighting()
+        optimizeTerrain()
+        task.wait(15) -- reapplies constantly
+    end
+end)
+
+print("MAX POTATO MODE ENABLED")
