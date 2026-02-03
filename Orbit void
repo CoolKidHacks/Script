@@ -15,9 +15,9 @@ end)
 local VOID_POS = Vector3.new(0, -1000, 0) 
 local SAFE_RAY_OFFSET = Vector3.new(0, 5, 0)
 
-local MIN_RADIUS = 15000
-local MAX_RADIUS = 100000
-local HEIGHT_OFFSET = 40000
+local MIN_RADIUS = 20000
+local MAX_RADIUS = 10000
+local HEIGHT_OFFSET = 30000
 local ORBIT_SPEED = 2500
 local Prediction = 0.18
 local Smoothness = 0.10
@@ -26,7 +26,7 @@ local VerticalDodgeSpeed = 10
 
 local OrbitEnabled = false
 local OrbitConnection
-local orbitAngle = 0
+local orbitAngle = 2
 local lastCF = Camera.CFrame
 local time = 0
 
