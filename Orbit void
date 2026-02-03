@@ -15,8 +15,8 @@ end)
 local VOID_POS = Vector3.new(0, -1000, 0) 
 local SAFE_RAY_OFFSET = Vector3.new(0, 5, 0)
 
-local MIN_RADIUS = 20000
-local MAX_RADIUS = 40000
+local MIN_RADIUS = -20000
+local MAX_RADIUS = -40000
 local HEIGHT_OFFSET = 30000
 local ORBIT_SPEED = 2500
 local Prediction = 0.18
