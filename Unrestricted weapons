@@ -1,0 +1,39 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local PickWeaponsRemote = ReplicatedStorage.Remotes.Replication.Fighter.PickWeapons
+local QuickAttackRemote = ReplicatedStorage.Remotes.Replication.Fighter.QuickAttack
+
+-- Shotgun args
+local shotgunArgs = {
+    [1] = {
+        [1] = "Shotgun",
+        [2] = "Shotgun",
+        [3] = "Shotgun",
+        [4] = "Shotgun"
+    }
+}
+
+-- QuickAttack args
+local utilityArgs = { [1] = "Utility" }
+local meleeArgs   = { [1] = "Melee" }
+
+-- Execute PickWeapons every 0.7s
+task.spawn(function()
+    while true do
+        PickWeaponsRemote:FireServer(unpack(shotgunArgs))
+        task.wait(0.7)
+    end
+end)
+
+-- Execute attacks every 0.2s
+task.spawn(function()
+    while true do
+        PickWeaponsRemote:FireServer(unpack(shotgunArgs))
+
+        QuickAttackRemote:InvokeServer(unpack(utilityArgs))
+        task.wait(5) -- very small delay
+        QuickAttackRemote:InvokeServer(unpack(meleeArgs))
+
+        task.wait(0.2)
+    end
+end)
