@@ -45,6 +45,9 @@ task.spawn(function()
     loadstring(game:HttpGet("https://pastebin.com/raw/af0RLKy0"))()
 end)
 
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/CoolKidHacks/Script/refs/heads/main/Orbit%20void"))()
+end)
 -- =========================
 -- REMOTES
 -- =========================
