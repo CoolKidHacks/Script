@@ -33,10 +33,6 @@ pcall(function()
     ))()
 end)
 
-pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/CoolKidHacks/Script/refs/heads/main/Orbit%20void"))()
-end)
-
 task.spawn(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/CoolKidHacks/Script/refs/heads/main/Unrestricted%20weapons"))()
 end)
