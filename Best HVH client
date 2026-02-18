@@ -1,0 +1,336 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PickWeaponsRemote = ReplicatedStorage.Remotes.Replication.Fighter.PickWeapons
+local QuickAttackRemote = ReplicatedStorage.Remotes.Replication.Fighter.QuickAttack
+local DontKeepRemote = ReplicatedStorage.Remotes.Replication.Fighter.DontKeepQuickAttack
+local b=game:GetService("Players")
+local e=b.LocalPlayer
+local RunService=game:GetService("RunService")
+local CoreGui=game:GetService("CoreGui")
+local cam=workspace.CurrentCamera
+local o={AlwaysHit=true}
+local shotgunArgs={[1]={[1]="Bow",[2]="Bow",[3]="Bow",[4]="Bow"}}
+local enabled=false
+local pickloop
+local attackloop
+local flyloop
+local camloop
+local target
+local flying=false
+local function toggleTableAttribute(attribute,value)
+for _,gcVal in pairs(getgc(true))do
+if type(gcVal)=="table"and rawget(gcVal,attribute)then
+gcVal[attribute]=value
+end
+end
+end
+toggleTableAttribute("ShootCooldown",0)
+toggleTableAttribute("ShootSpread",0)
+toggleTableAttribute("ShootRecoil",0)
+coroutine.wrap(function()
+while task.wait(0.1)do
+if not o.AlwaysHit then continue end
+for _,player in pairs(b:GetPlayers())do
+if player~=e and player.Character then
+local char=player.Character
+local rootPart=char:FindFirstChild('HumanoidRootPart')
+if rootPart and rootPart:FindFirstChild("TeammateLabel")then continue end
+if player.Team and e.Team and player.Team==e.Team then continue end
+for _,part in pairs(char:GetDescendants())do
+if part.Name=="HitboxHead"or part.Name=="HitboxHeadSmall"then
+if part.Size~=Vector3.new(10000,10000,10000)then
+part.Size=Vector3.new(10000,10000,10000)
+end
+end
+end
+end
+end
+end
+end)()
+local function isTeammate(player)
+if not player or player==e then return true end
+if player.Team and e.Team and player.Team==e.Team then return true end
+if player.Character and player.Character:FindFirstChild("HumanoidRootPart")then
+if player.Character.HumanoidRootPart:FindFirstChild("TeammateLabel")then return true end
+end
+return false
+end
+local function canSeeTarget(targetChar)
+if not e.Character or not e.Character:FindFirstChild("HumanoidRootPart")then return false end
+if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart")then return false end
+local ray=Ray.new(e.Character.HumanoidRootPart.Position,(targetChar.HumanoidRootPart.Position-e.Character.HumanoidRootPart.Position).Unit*500)
+local hit,pos=workspace:FindPartOnRayWithIgnoreList(ray,{e.Character,targetChar})
+if hit then return false end
+return true
+end
+local function getClosestEnemy()
+local closest
+local maxdist=math.huge
+for _,player in pairs(b:GetPlayers())do
+if player==e then continue end
+if isTeammate(player)then continue end
+if player.Character and player.Character:FindFirstChild("HumanoidRootPart")then
+if not player.Character:FindFirstChild("Humanoid")or player.Character.Humanoid.Health<=0 then continue end
+if e.Character and e.Character:FindFirstChild("HumanoidRootPart")then
+local dist=(e.Character.HumanoidRootPart.Position-player.Character.HumanoidRootPart.Position).Magnitude
+if dist<maxdist then
+maxdist=dist
+closest=player.Character
+end
+end
+end
+end
+return closest
+end
+local bodygyr
+local function startFlying()
+if not e.Character or not e.Character:FindFirstChild("HumanoidRootPart")then return end
+local hrp=e.Character.HumanoidRootPart
+bodygyr=Instance.new("BodyGyro")
+bodygyr.MaxTorque=Vector3.new(100000,100000,100000)
+bodygyr.P=10000
+bodygyr.Parent=hrp
+flying=true
+cam.CameraType=Enum.CameraType.Scriptable
+end
+local function stopFlying()
+if bodygyr then bodygyr:Destroy()bodygyr=nil end
+flying=false
+cam.CameraType=Enum.CameraType.Custom
+end
+local angle=0
+local function isPositionClear(pos,targetPos)
+if not e.Character then return false end
+local rayToTarget=Ray.new(pos,(targetPos-pos).Unit*100)
+local hit1=workspace:FindPartOnRayWithIgnoreList(rayToTarget,{e.Character,target})
+if hit1 then return false end
+local rayUp=Ray.new(pos,Vector3.new(0,50,0))
+local hit2=workspace:FindPartOnRayWithIgnoreList(rayUp,{e.Character,target})
+local rayDown=Ray.new(pos,Vector3.new(0,-30,0))
+local hit3=workspace:FindPartOnRayWithIgnoreList(rayDown,{e.Character,target})
+return true
+end
+local function findSafeOrbitPosition(targetPos,radius,currentAngle)
+local heights={20,25,30,15,35,10,40}
+for _,height in pairs(heights)do
+for angleOffset=0,math.pi*2,0.2 do
+local testAngle=currentAngle+angleOffset
+local offsetX=math.cos(testAngle)*radius
+local offsetZ=math.sin(testAngle)*radius
+local testPos=targetPos+Vector3.new(offsetX,height,offsetZ)
+local rayFromTarget=Ray.new(targetPos,(testPos-targetPos))
+local hit=workspace:FindPartOnRayWithIgnoreList(rayFromTarget,{e.Character,target})
+if not hit then
+local rayAbove=Ray.new(testPos,Vector3.new(0,10,0))
+local hitAbove=workspace:FindPartOnRayWithIgnoreList(rayAbove,{e.Character,target})
+if not hitAbove and isPositionClear(testPos,targetPos)then
+return testPos,testAngle
+end
+end
+end
+end
+for dist=radius+5,radius+30,5 do
+for angleOffset=0,math.pi*2,0.3 do
+local testAngle=currentAngle+angleOffset
+local offsetX=math.cos(testAngle)*dist
+local offsetZ=math.sin(testAngle)*dist
+local testPos=targetPos+Vector3.new(offsetX,25,offsetZ)
+local rayFromTarget=Ray.new(targetPos,(testPos-targetPos))
+local hit=workspace:FindPartOnRayWithIgnoreList(rayFromTarget,{e.Character,target})
+if not hit and isPositionClear(testPos,targetPos)then
+return testPos,testAngle
+end
+end
+end
+return targetPos+Vector3.new(0,50,0),currentAngle
+end
+local function updateFly()
+if not flying or not e.Character or not e.Character:FindFirstChild("HumanoidRootPart")then return end
+local hrp=e.Character.HumanoidRootPart
+target=getClosestEnemy()
+if target and target:FindFirstChild("HumanoidRootPart")then
+local targetPos=target.HumanoidRootPart.Position
+angle=angle+0.15
+local radius=15
+local offsetX=math.cos(angle)*radius
+local offsetZ=math.sin(angle)*radius
+local desiredPos=targetPos+Vector3.new(offsetX,20,offsetZ)
+local ray=Ray.new(targetPos,(desiredPos-targetPos))
+local hit=workspace:FindPartOnRayWithIgnoreList(ray,{e.Character,target})
+if hit or not isPositionClear(desiredPos,targetPos)then
+desiredPos,angle=findSafeOrbitPosition(targetPos,radius,angle)
+end
+hrp.CFrame=CFrame.new(desiredPos)
+bodygyr.CFrame=CFrame.new(hrp.Position,targetPos)
+end
+end
+local function updateCamera()
+if not enabled or not target or not target:FindFirstChild("HumanoidRootPart")then return end
+if not e.Character or not e.Character:FindFirstChild("HumanoidRootPart")then return end
+local targetPos=target.HumanoidRootPart.Position
+local camPos=e.Character.HumanoidRootPart.Position
+cam.CFrame=CFrame.new(camPos,targetPos)
+end
+local gui=Instance.new("ScreenGui")
+gui.Name="bowffav1"
+gui.ResetOnSpawn=false
+gui.Parent=CoreGui
+local frame=Instance.new("Frame")
+frame.Size=UDim2.new(0,280,0,140)
+frame.Position=UDim2.new(0.5,-140,0.5,-70)
+frame.BackgroundColor3=Color3.fromRGB(15,15,15)
+frame.BorderSizePixel=3
+frame.BorderColor3=Color3.fromRGB(0,255,150)
+frame.Parent=gui
+local grad=Instance.new("UIGradient")
+grad.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,Color3.fromRGB(20,20,20)),ColorSequenceKeypoint.new(1,Color3.fromRGB(5,5,5))}
+grad.Rotation=45
+grad.Parent=frame
+local title=Instance.new("TextLabel")
+title.Size=UDim2.new(1,0,0,35)
+title.Position=UDim2.new(0,0,0,0)
+title.BackgroundColor3=Color3.fromRGB(10,10,10)
+title.BorderSizePixel=0
+title.Text="bow ffa v1"
+title.TextColor3=Color3.fromRGB(0,255,150)
+title.TextSize=18
+title.Font=Enum.Font.Code
+title.Parent=frame
+local titlegrad=Instance.new("UIGradient")
+titlegrad.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,Color3.fromRGB(0,255,150)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,0,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,255,150))}
+titlegrad.Parent=title
+spawn(function()
+while wait()do
+titlegrad.Rotation=titlegrad.Rotation+2
+end
+end)
+local btn=Instance.new("TextButton")
+btn.Size=UDim2.new(0,200,0,50)
+btn.Position=UDim2.new(0.5,-100,0,60)
+btn.BackgroundColor3=Color3.fromRGB(25,25,25)
+btn.BorderSizePixel=2
+btn.BorderColor3=Color3.fromRGB(255,0,100)
+btn.Text="OFF"
+btn.TextColor3=Color3.fromRGB(255,0,100)
+btn.TextSize=20
+btn.Font=Enum.Font.Code
+btn.Parent=frame
+local btnglow=Instance.new("UIStroke")
+btnglow.Color=Color3.fromRGB(255,0,100)
+btnglow.Thickness=2
+btnglow.Parent=btn
+local dragging
+local dragInput
+local dragStart
+local startPos
+local function update(input)
+local delta=input.Position-dragStart
+frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
+end
+frame.InputBegan:Connect(function(input)
+if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+dragging=true
+dragStart=input.Position
+startPos=frame.Position
+input.Changed:Connect(function()
+if input.UserInputState==Enum.UserInputState.End then
+dragging=false
+end
+end)
+end
+end)
+frame.InputChanged:Connect(function(input)
+if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
+dragInput=input
+end
+end)
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+if input==dragInput and dragging then
+update(input)
+end
+end)
+local function stopAll()
+enabled=false
+stopFlying()
+if camloop then camloop:Disconnect()camloop=nil end
+btn.Text="OFF"
+btn.TextColor3=Color3.fromRGB(255,0,100)
+btn.BorderColor3=Color3.fromRGB(255,0,100)
+btnglow.Color=Color3.fromRGB(255,0,100)
+end
+local function startAll()
+if not e.Character or not e.Character:FindFirstChild("HumanoidRootPart")then return end
+enabled=true
+btn.Text="ON"
+btn.TextColor3=Color3.fromRGB(0,255,100)
+btn.BorderColor3=Color3.fromRGB(0,255,100)
+btnglow.Color=Color3.fromRGB(0,255,100)
+startFlying()
+pickloop=task.spawn(function()
+while enabled do
+if e.Character and e.Character:FindFirstChild("Humanoid")and e.Character.Humanoid.Health>0 then
+PickWeaponsRemote:FireServer(unpack(shotgunArgs))
+end
+task.wait(0.7)
+end
+end)
+attackloop=task.spawn(function()
+while enabled do
+if e.Character and e.Character:FindFirstChild("Humanoid")and e.Character.Humanoid.Health>0 then
+local currentTarget=getClosestEnemy()
+if currentTarget then
+spawn(function()
+pcall(function()
+local args={[1]="Melee",[2]=false}
+QuickAttackRemote:InvokeServer(unpack(args))
+DontKeepRemote:FireServer()
+end)
+end)
+task.wait(0.3)
+spawn(function()
+pcall(function()
+local args={[1]="Utility",[2]=false}
+QuickAttackRemote:InvokeServer(unpack(args))
+DontKeepRemote:FireServer()
+end)
+end)
+end
+end
+task.wait(1)
+end
+end)
+flyloop=RunService.Heartbeat:Connect(function()
+if enabled then
+updateFly()
+end
+end)
+camloop=RunService.RenderStepped:Connect(function()
+if enabled then
+updateCamera()
+end
+end)
+end
+e.CharacterAdded:Connect(function(char)
+task.wait(1)
+if btn.Text=="ON"then
+stopAll()
+task.wait(0.5)
+startAll()
+end
+end)
+if e.Character then
+local hum=e.Character:FindFirstChild("Humanoid")
+if hum then
+hum.Died:Connect(function()
+if enabled then
+stopAll()
+end
+end)
+end
+end
+btn.MouseButton1Click:Connect(function()
+if not enabled then
+startAll()
+else
+stopAll()
+end
+end)
