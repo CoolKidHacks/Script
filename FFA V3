@@ -37,10 +37,6 @@ task.spawn(function()
     loadstring(game:HttpGet("https://pastebin.com/raw/aydSW58B"))()
 end)
 
-task.spawn(function()
-    loadstring(game:HttpGet("https://pastebin.com/raw/af0RLKy0"))()
-end)
-
 -- =========================
 -- REMOTES
 -- =========================
