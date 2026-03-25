@@ -33,10 +33,6 @@ pcall(function()
     ))()
 end)
 
-task.spawn(function()
-    loadstring(game:HttpGet("https://pastebin.com/raw/aydSW58B"))()
-end)
-
 -- =========================
 -- REMOTES
 -- =========================
